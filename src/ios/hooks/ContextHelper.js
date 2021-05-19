@@ -38,8 +38,8 @@ class ContextHelper {
       .then(p => {
         const pluginId = this.pluginId;
         if (!pluginId) throw new Error('Missing plugin ID in context');
-        if (p && p.cordova && p.cordova.plugins && p.cordova.plugins[pluginId]) {
-          return p.cordova.plugins[pluginId].CLIENT_ID;
+        if (p && p.cordova && p.installed_plugins && p.installed_plugins[pluginId]) {
+          return p.installed_plugins[pluginId].CLIENT_ID;
         }
       });
   }
@@ -48,8 +48,8 @@ class ContextHelper {
       .then(p => {
         const pluginId = this.pluginId;
         if (!pluginId) throw new Error('Missing plugin ID in context');
-        if (p && p.cordova && p.cordova.plugins && p.cordova.plugins[pluginId]) {
-          return p.cordova.plugins[pluginId].CLIENT_SECRET;
+        if (p && p.cordova && p.installed_plugins && p.installed_plugins[pluginId]) {
+          return p.installed_plugins[pluginId].CLIENT_SECRET;
         }
       });
   }
@@ -57,11 +57,11 @@ class ContextHelper {
     const projectRoot = this.projectRoot;
     if (!projectRoot) return Promise.reject(new Error('Missing project root'));
     if (!this.context) return Promise.reject(new Error('Missing context'));
-    const packagePath = path.join(projectRoot, 'package.json');
+    const packagePath = path.join(projectRoot, 'plugins/ios.json');
     return new Promise((res, rej) => {
       fs.exists(packagePath, (exists) => {
         if (!exists) {
-          rej(new Error('Missing package.json file'));
+          rej(new Error('Missing package.json file in ' + projectRoot));
           return;
         }
         const contents = fs.readFileSync(packagePath);
