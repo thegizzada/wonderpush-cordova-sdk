@@ -2,9 +2,9 @@ def wonderpushPluginVariables = ({
   try {
     // Read plugin variables from cordova project root package.json
     // so that they stay in code and do not end-up copied as a resource
-    def packageJsonText = file("../../../plugins/android.json").getText()
+    def packageJsonText = file("../../../package.json").getText()
     def packageJson = new groovy.json.JsonSlurper().parseText(packageJsonText)
-    return packageJson.installed_plugins["wonderpush-cordova-sdk"]
+    return packageJson.cordova.plugins["wonderpush-cordova-sdk"]
   } catch (Exception ex) {
     logger.warn("Could not find wonderpush-cordova-sdk plugin configuration. This is expected if you are using Capacitor.")
     return null
