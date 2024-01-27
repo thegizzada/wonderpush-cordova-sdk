@@ -24,7 +24,10 @@
     // - (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions
 
     [WonderPush setLogging:[@"true" isEqualToString:[self.commandDelegate.settings objectForKey:[@"WONDERPUSH_LOGGING" lowercaseString]]]];
-    [WonderPush setRequiresUserConsent:[@"true" isEqualToString:[self.commandDelegate.settings objectForKey:[@"WONDERPUSH_REQUIRES_USER_CONSENT" lowercaseString]]]];
+    NSString *consentString = [self.commandDelegate.settings objectForKey:[@"WONDERPUSH_REQUIRES_USER_CONSENT" lowercaseString]];
+    if (consentString) {
+      [WonderPush setRequiresUserConsent:[@"true" isEqualToString:consentString]];
+    }
 
     self.jsCallbackWaitersLock = [NSLock new];
     self.jsCallbackWaiters = [NSMutableDictionary new];
@@ -35,11 +38,13 @@
         return;
     }
 
-    [WonderPush setIntegrator:@"wonderpush-cordova-sdk-3.0.7"];
+    [WonderPush setIntegrator:@"wonderpush-cordova-sdk-3.0.16"];
 
     NSString *clientId = [self.commandDelegate.settings objectForKey:[@"WONDERPUSH_CLIENT_ID" lowercaseString]];
     NSString *clientSecret = [self.commandDelegate.settings objectForKey:[@"WONDERPUSH_CLIENT_SECRET" lowercaseString]];
-    [WonderPush setClientId:clientId secret:clientSecret];
+    if (clientId && clientSecret) {
+        [WonderPush setClientId:clientId secret:clientSecret];
+    }
     [WonderPush setupDelegateForApplication:[UIApplication sharedApplication]];
     [WonderPush setupDelegateForUserNotificationCenter];
 
@@ -106,8 +111,8 @@
 }
 
 - (void)onRegisteredCallback:(NSNotification *)notification {
-    NSString *method = notification.userInfo[WP_REGISTERED_CALLBACK_PARAMETER_KEY];
-    NSString *arg = notification.userInfo[WP_REGISTERED_CALLBACK_METHOD_KEY];
+    NSString *method = notification.userInfo[WP_REGISTERED_CALLBACK_METHOD_KEY];
+    NSString *arg = notification.userInfo[WP_REGISTERED_CALLBACK_PARAMETER_KEY];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{
                                                                                                           @"type": @"registeredCallback",
                                                                                                           @"method": method,
