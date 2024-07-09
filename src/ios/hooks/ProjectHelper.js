@@ -160,7 +160,8 @@ class ProjectHelper {
   }
 
   /**
-   * Returns the bundle ID of the first app target for the specified environment
+   * Returns the bundle ID of the first app target for the specified environment.
+   * Strips surrounding quotes if present in the raw value.
    * @param {'Debug' | 'Release'} environment
    * @return {string | undefined}
    */
@@ -172,10 +173,14 @@ class ProjectHelper {
     const buildConfiguration = targetBuildConfigurations
       .find(x => x.pbxXCBuildConfiguration.name === environment);
 
-    return buildConfiguration
+    let rtn = buildConfiguration
       && buildConfiguration.pbxXCBuildConfiguration.buildSettings
       && buildConfiguration.pbxXCBuildConfiguration.buildSettings.PRODUCT_BUNDLE_IDENTIFIER
       || undefined;
+    if (typeof rtn === 'string' && rtn.startsWith('"') && rtn.endsWith('"')) {
+      rtn = rtn.substring(1, rtn.length - 1);
+    }
+    return rtn;
   }
 
   getProjectMainGroupId() {
@@ -335,7 +340,7 @@ class ProjectHelper {
   }
 }
 
-ProjectHelper.POD_VERSION = '4.0.10';
+ProjectHelper.POD_VERSION = '4.3.1';
 ProjectHelper.PODFILE_SNIPPET = "target 'WonderPushNotificationServiceExtension' do\n" +
   "  platform :ios, '10.0'\n" +
   "  use_frameworks!\n" +

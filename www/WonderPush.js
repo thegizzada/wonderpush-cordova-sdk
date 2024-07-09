@@ -73,7 +73,9 @@ function _makeDeferred(successCb, errorCb) {
 
 function _callNative(actionName, args, successCb, errorCb) {
   var deferred = _makeDeferred(successCb, errorCb);
-  cordova.exec(deferred.success, deferred.failure, _serviceName, actionName, args || []);
+  if (typeof cordova !== "undefined") {
+    cordova.exec(deferred.success, deferred.failure, _serviceName, actionName, args || []);
+  }
   return deferred.promise;
 }
 
@@ -85,6 +87,10 @@ function _callCallbackReturnPromise(result, successCb) {
 
 _callNative('__setEventForwarder', [], function(event) {
   if (!event) return;
+  if (typeof cordova === "undefined") {
+    console.warn('[WonderPush] cordova is not defined, could not fireDocumentEvent', event);
+    return;
+  }
   switch (event.type) {
     case 'notificationOpen':
       /**
@@ -219,11 +225,25 @@ function delegateNativeCallback(call) {
     return;
   }
   switch (call.method) {
+    case 'onNotificationReceived':
+      if (currentDelegate.onNotificationReceived) {
+        currentDelegate.onNotificationReceived(call.notification);
+      }
+      return;
+    case 'onNotificationOpened':
+      if (currentDelegate.onNotificationOpened) {
+        currentDelegate.onNotificationOpened(call.notification, call.buttonIndex);
+      }
+      return;
     case 'urlForDeepLink': // fallthrough // Android name
     case 'wonderPushWillOpenURL': // iOS name
-      currentDelegate.urlForDeepLink(call['url'], function(url) {
-        _callNative('__callback', [call.__callbackId, url]);
-      });
+      if (currentDelegate.urlForDeepLink) {
+        currentDelegate.urlForDeepLink(call['url'], function(url) {
+          _callNative('__callback', [call.__callbackId, url]);
+        });
+      } else {
+        _callNative('__callback', [call.__callbackId, call.url]);
+      }
       return;
   }
 }
@@ -588,21 +608,31 @@ function putInstallationCustomProperties(customProperties, onSuccess, onFailure)
 /**
  * Subscribes to push notification and registers the device token with WondePush.
  *
- * On iOS, you **must** call the following method at least once to make the notification visible to the user.
+ * On iOS and Android 13+, you **must** call the following method at least once to make the notification visible to the user.
  *
- * - You can call this method multiple times. The user is only prompted for permission by iOS once.
+ * - You can call this method multiple times. The user is only prompted for permission by the OS once.
  * - There is no need to call this method if the permission has already been granted, but it does not harm either.
  * - If the permission has been denied in the OS, the user will stay soft opt-out.
  *
- * Because in iOS you only have *one* chance for prompting the user, you should find a good timing for that.
+ * Because the OS will only let you have *one* chance for prompting the user, you should find a good timing for that.
  * For a start, you can systematically call it when the application starts, so that the user will be prompted directly at the first launch.
  *
+ * About Android 13+: If you want to control when the user is prompted, you also need to update your `config.xml` and add:
+ * `<preference name="android-targetSdkVersion" value="33" />` inside `<platform name="android">`.
+ * Otherwise the user will be prompted when the application launches.
+ *
+ * @param {boolean} [fallbackToSettings] - On Android, shows a dialog that leads user to the settings should he refuse the permission.
  * @param {WonderPush~SuccessCallback} [onSuccess] - The success callback.
  * @param {WonderPush~ErrorCallback} [onFailure] - The failure callback.
  * @memberof WonderPush
  */
-function subscribeToNotifications(onSuccess, onFailure) {
-  return _callNative('subscribeToNotifications', [], onSuccess, onFailure);
+function subscribeToNotifications(fallbackToSettings, onSuccess, onFailure) {
+  if (typeof fallbackToSettings == 'function') {
+    onFailure = onSuccess;
+    onSuccess = fallbackToSettings;
+    fallbackToSettings = false;
+  }
+  return _callNative('subscribeToNotifications', [!!fallbackToSettings], onSuccess, onFailure);
 }
 
 /**
@@ -902,7 +932,7 @@ function setGeolocation(latitude, longitude, onSuccess, onFailure) {
  * @alias WonderPush.UserPreferences.getDefaultChannelId
  */
 function UserPreferences_getDefaultChannelId(cb, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     _callNative('UserPreferences_getDefaultChannelId', [], cb, onFailure);
   } else {
     return _callCallbackReturnPromise('default', cb);
@@ -917,7 +947,7 @@ function UserPreferences_getDefaultChannelId(cb, onFailure) {
  * @alias WonderPush.UserPreferences.setDefaultChannelId
  */
 function UserPreferences_setDefaultChannelId(id, cb, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_setDefaultChannelId', [id], cb, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, cb);
@@ -937,7 +967,7 @@ function UserPreferences_setDefaultChannelId(id, cb, onFailure) {
  * @alias WonderPush.UserPreferences.getChannelGroups
  */
 function UserPreferences_getChannelGroup(groupId, cb, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_getChannelGroup', [groupId], cb, onFailure);
   } else {
     return _callCallbackReturnPromise(null, cb);
@@ -957,7 +987,7 @@ function UserPreferences_getChannelGroup(groupId, cb, onFailure) {
  * @alias WonderPush.UserPreferences.getChannel
  */
 function UserPreferences_getChannel(channelId, cb, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_getChannel', [channelId], cb, onFailure);
   } else {
     return _callCallbackReturnPromise(null, cb);
@@ -972,7 +1002,7 @@ function UserPreferences_getChannel(channelId, cb, onFailure) {
  * @alias WonderPush.UserPreferences.setChannelGroups
  */
 function UserPreferences_setChannelGroups(channelGroups, onSuccess, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_setChannelGroups', [channelGroups], onSuccess, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, onSuccess);
@@ -987,7 +1017,7 @@ function UserPreferences_setChannelGroups(channelGroups, onSuccess, onFailure) {
  * @alias WonderPush.UserPreferences.setChannels
  */
 function UserPreferences_setChannels(channels, onSuccess, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_setChannels', [channels], onSuccess, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, onSuccess);
@@ -1002,7 +1032,7 @@ function UserPreferences_setChannels(channels, onSuccess, onFailure) {
  * @alias WonderPush.UserPreferences.putChannelGroup
  */
 function UserPreferences_putChannelGroup(channelGroup, onSuccess, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_putChannelGroup', [channelGroup], onSuccess, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, onSuccess);
@@ -1017,7 +1047,7 @@ function UserPreferences_putChannelGroup(channelGroup, onSuccess, onFailure) {
  * @alias WonderPush.UserPreferences.putChannel
  */
 function UserPreferences_putChannel(channel, onSuccess, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_putChannel', [channel], onSuccess, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, onSuccess);
@@ -1032,7 +1062,7 @@ function UserPreferences_putChannel(channel, onSuccess, onFailure) {
  * @alias WonderPush.UserPreferences.removeChannelGroup
  */
 function UserPreferences_removeChannelGroup(groupId, onSuccess, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_removeChannelGroup', [groupId], onSuccess, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, onSuccess);
@@ -1047,7 +1077,7 @@ function UserPreferences_removeChannelGroup(groupId, onSuccess, onFailure) {
  * @alias WonderPush.UserPreferences.removeChannel
  */
 function UserPreferences_removeChannel(channelId, onSuccess, onFailure) {
-  if (cordova.platformId === "android") {
+  if (typeof cordova !== "undefined" && cordova.platformId === "android") {
     return _callNative('UserPreferences_removeChannel', [channelId], onSuccess, onFailure);
   } else {
     return _callCallbackReturnPromise(undefined, onSuccess);
